@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>大学校徽馆</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f7f7f5;
+      color: #222;
+    }
+    .app { max-width: 540px; margin: 0 auto; padding: 18px 14px 48px; }
+    h1 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
+    .subtitle { margin-top: 5px; font-size: 12px; color: #777; }
+    .panel {
+      margin: 14px 0; padding: 12px; border: 1px solid #e7e7e3; border-radius: 20px;
+      background: rgba(255,255,255,0.9); box-shadow: 0 10px 28px rgba(0,0,0,0.045);
+      backdrop-filter: blur(18px);
+    }
+    input {
+      width: 100%; border: 1px solid #e5e5e1; outline: none; border-radius: 13px;
+      padding: 11px 12px; font-size: 13px; background: #fff; color: #222;
+    }
+    .search { border: none; background: #f0f0ed; font-size: 14px; }
+    .form { display: grid; gap: 8px; margin-top: 10px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    button {
+      border: none; border-radius: 999px; padding: 11px 12px; font-size: 13px;
+      background: #222; color: white; cursor: pointer;
+    }
+    .ghost { background: #efefec; color: #555; }
+    .muted { font-size: 11px; color: #888; line-height: 1.55; margin-top: 8px; }
+    .tools { display: flex; gap: 8px; margin-top: 10px; }
+    .tools button { flex: 1; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .card {
+      position: relative; min-width: 0; padding: 12px 7px 10px; border: 1px solid #e7e7e3;
+      border-radius: 19px; background: #fff; text-align: center; box-shadow: 0 7px 18px rgba(0,0,0,0.035);
+    }
+    .logo-wrap {
+      width: 60px; height: 60px; margin: 0 auto 7px; border-radius: 50%; background: #fafafa;
+      border: 1px solid #e3e3df; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .logo-wrap img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+    .fallback {
+      width: 44px; height: 44px; border-radius: 50%; border: 1px solid #ccc; display: flex;
+      align-items: center; justify-content: center; font-size: 10px; font-weight: 650; color: #555; background: #f4f4f2;
+    }
+    .name {
+      font-size: 11px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .region { margin-top: 3px; font-size: 10px; color: #999; }
+    .mini-actions { position: absolute; right: 5px; top: 5px; display: flex; gap: 3px; }
+    .mini-actions button {
+      width: 22px; height: 22px; padding: 0; font-size: 12px; background: #f1f1ef; color: #999;
+    }
+    .empty { margin-top: 42px; text-align: center; font-size: 13px; color: #aaa; }
+    .example {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: #f2f2ef; border-radius: 8px; padding: 1px 5px; color: #555;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #171717; color: #eee; }
+      .panel, .card { background: #222; border-color: #333; }
+      input { background: #1b1b1b; color: #eee; border-color: #333; }
+      .search, .ghost, .mini-actions button, .example { background: #2d2d2d; color: #bbb; }
+      .logo-wrap, .fallback { background: #1b1b1b; border-color: #333; color: #aaa; }
+      .subtitle, .muted, .region { color: #888; }
+      button { background: #eee; color: #111; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>大学校徽馆</h1>
+      <div class="subtitle">GitHub 图片版 · 每行三个 · 简约展示</div>
+    </header>
+
+    <section class="panel">
+      <input id="search" class="search" placeholder="搜索大学 / 地区 / 图片名" />
+
+      <div class="form">
+        <div class="row">
+          <input id="name" placeholder="大学名称" />
+          <input id="region" placeholder="地区 / 分类" />
+        </div>
+        <input id="image" placeholder="图片路径，例如：images/zjgsu.png" />
+        <button onclick="saveUniversity()">添加大学</button>
+      </div>
+
+      <div class="tools">
+        <button class="ghost" onclick="exportData()">导出</button>
+        <button class="ghost" onclick="importData()">导入</button>
+        <button class="ghost" onclick="resetForm()">清空输入</button>
+      </div>
+
+      <div class="muted">
+        用法：先把校徽图片上传到 GitHub 仓库的 <span class="example">images/</span> 文件夹，再在这里填写路径，例如 <span class="example">images/pku.png</span>。这个版本不会从手机相册上传图片。
+      </div>
+    </section>
+
+    <section id="grid" class="grid"></section>
+    <div id="empty" class="empty" style="display:none;">还没有找到对应大学</div>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "university_logo_gallery_github_images_v1";
+    let editingIndex = null;
+
+    const defaultData = [
+      { name: "北京大学", region: "中国", image: "images/pku.png" },
+      { name: "清华大学", region: "中国", image: "images/thu.png" },
+      { name: "复旦大学", region: "中国", image: "images/fudan.png" },
+      { name: "浙江大学", region: "中国", image: "images/zju.png" },
+      { name: "哈佛大学", region: "美国", image: "images/harvard.png" },
+      { name: "东京大学", region: "日本", image: "images/tokyo.png" }
+    ];
+
+    let data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null") || defaultData;
+
+    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+    function shortName(name) {
+      if (!name) return "校";
+      const english = name.match(/[A-Za-z]/g);
+      if (english && english.length >= 2) return english.slice(0, 3).join("").toUpperCase();
+      return name.replace(/大学|学院|学校/g, "").slice(0, 2);
+    }
+
+    function safeText(text) {
+      return String(text || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function render() {
+      const grid = document.getElementById("grid");
+      const empty = document.getElementById("empty");
+      const query = document.getElementById("search").value.trim().toLowerCase();
+
+      const filtered = data
+        .map((item, index) => ({ ...item, realIndex: index }))
+        .filter(item =>
+          item.name.toLowerCase().includes(query) ||
+          item.region.toLowerCase().includes(query) ||
+          item.image.toLowerCase().includes(query)
+        );
+
+      grid.innerHTML = filtered.map(item => {
+        const image = safeText(item.image);
+        const name = safeText(item.name);
+        const region = safeText(item.region || "未分类");
+
+        const logo = image
+          ? `<img src="${image}" alt="${name}校徽" onerror="this.outerHTML='<div class=&quot;fallback&quot;>${shortName(name)}</div>'" />`
+          : `<div class="fallback">${shortName(name)}</div>`;
+
+        return `
+          <article class="card">
+            <div class="mini-actions">
+              <button onclick="editUniversity(${item.realIndex})">改</button>
+              <button onclick="deleteUniversity(${item.realIndex})">×</button>
+            </div>
+            <div class="logo-wrap">${logo}</div>
+            <div class="name" title="${name}">${name}</div>
+            <div class="region">${region}</div>
+          </article>
+        `;
+      }).join("");
+
+      empty.style.display = filtered.length ? "none" : "block";
+    }
+
+    function saveUniversity() {
+      const name = document.getElementById("name").value.trim();
+      const region = document.getElementById("region").value.trim() || "未分类";
+      const image = document.getElementById("image").value.trim();
+
+      if (!name) {
+        alert("宝宝，大学名称不能为空哦");
+        return;
+      }
+
+      const item = { name, region, image };
+
+      if (editingIndex !== null) data[editingIndex] = item;
+      else data.unshift(item);
+
+      save();
+      resetForm();
+      render();
+    }
+
+    function editUniversity(index) {
+      editingIndex = index;
+      document.getElementById("name").value = data[index].name;
+      document.getElementById("region").value = data[index].region;
+      document.getElementById("image").value = data[index].image || "";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function deleteUniversity(index) {
+      if (confirm("确定删除这个大学吗？")) {
+        data.splice(index, 1);
+        save();
+        render();
+      }
+    }
+
+    function resetForm() {
+      editingIndex = null;
+      document.getElementById("name").value = "";
+      document.getElementById("region").value = "";
+      document.getElementById("image").value = "";
+    }
+
+    function exportData() {
+      prompt("复制下面的数据，之后可导入恢复：", JSON.stringify(data));
+    }
+
+    function importData() {
+      const text = prompt("把之前导出的数据粘贴到这里：");
+      if (!text) return;
+      try {
+        const imported = JSON.parse(text);
+        if (!Array.isArray(imported)) throw new Error();
+        data = imported;
+        save();
+        resetForm();
+        render();
+      } catch {
+        alert("数据格式不对，导入失败啦");
+      }
+    }
+
+    document.getElementById("search").addEventListener("input", render);
+    render();
+  </script>
+</body>
+</html>
